@@ -23,7 +23,11 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
 
     [Header("生成参数")]
     public float spawnHeight = 5f;                           // 生成高度
-    public float spawnInterval = 2f;                         // 生成间隔
+
+    public float baseSpawnInterval = 2f;                     // 基础生成间隔
+    public float minSpawnInterval = 0.5f;                    // 最小生成间隔
+    private float spawnInterval = 2f;                             // 当前生成间隔
+
     public float spawnWidth = 5f;                            // 生成宽度
     public float moveSpeed;                                  // 移动速度
     public float destroyDistance = 20f;                      // 销毁距离
@@ -41,6 +45,11 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
 
 
     #region 生命周期方法
+
+    private void Start()
+    {
+        UpdateSpawnInterval();
+    }
     void Update()
     {
         if (Time.time - lastSpawnTime >= spawnInterval && startSpawn)
@@ -53,6 +62,21 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
 
 
     #region 道具生成
+
+    private void UpdateSpawnInterval()
+    {
+        float t = (taskLength - 2f) / 4f; // 归一化任务长度
+        t = Mathf.Clamp01(t); // 确保值在0-1之间
+        spawnInterval = Mathf.Lerp(baseSpawnInterval, minSpawnInterval, t);
+    }
+
+    // 在任务长度改变时更新生成间隔
+    public void SetTaskLength(int length)
+    {
+        taskLength = length;
+        UpdateSpawnInterval();
+    }
+
     void SpawnEnergy()//能量块生成
     {
         if (itemPrefabs == null || itemPrefabs.Length == 0) return;
@@ -178,6 +202,7 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
                 ResetTask();
                 UIController.Instance.UpdateTaskUI("收集顺序错误，任务重置！");
 
+                GameManager.Instance.SetTaskCompletedState(true);
 
                 DifficultyController.Instance.OnTaskCompleted(false);
 
@@ -198,6 +223,7 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
 
                     UIController.Instance.UpdateTaskUI("任务完成！获得额外分数：" + taskLength);
 
+                    GameManager.Instance.SetTaskCompletedState(true);
 
                     DifficultyController.Instance.OnTaskCompleted(true);
 

@@ -38570,7 +38570,8 @@ MonoBehaviour:
     prefab: {fileID: 360085574242916642, guid: 53659330d8383444d951efdd3ba3a20b, type: 3}
     spawnWeight: 3
   spawnHeight: 5
-  spawnInterval: 2
+  baseSpawnInterval: 2
+  minSpawnInterval: 0.5
   spawnWidth: 5
   moveSpeed: 0
   destroyDistance: 20

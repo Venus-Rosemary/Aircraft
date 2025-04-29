@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 
@@ -176,6 +177,7 @@ public class DifficultyController : Singleton<DifficultyController>
         if (taskRightOrWrong)
         {
             baseTaskLength += taskLengthAdjustment;
+            baseTaskLength = Mathf.Clamp(baseTaskLength , 2 , 6);
         }
         else if (!taskRightOrWrong)
         {
@@ -200,7 +202,7 @@ public class DifficultyController : Singleton<DifficultyController>
         }
 
         // 更新任务生成器
-        EnergyGenerator.Instance.taskLength = baseTaskLength;
+        EnergyGenerator.Instance.SetTaskLength(baseTaskLength);
     }
 
     private void ResetStats()

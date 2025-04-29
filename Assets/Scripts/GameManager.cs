@@ -20,6 +20,8 @@ public class GameManager : Singleton<GameManager>
     private bool isGameRunning = false;
     private PlayerControl playerControl;
     private EnergyGenerator itemGenerator;
+
+    private bool isTaskCompleted = false;                   // 任务完成标志(看任务是否做过，做过为true)
     #endregion
 
     #region 生命周期方法
@@ -65,12 +67,28 @@ public class GameManager : Singleton<GameManager>
         {
             TriggerNewTask();
         }
+        if (currentTaskIndex!=0 && !isTaskCompleted)
+        {
+            if (gameDuration - currentGameTime >= taskTriggerTimes[currentTaskIndex-1] + 29f)
+            {
+                Debug.Log("超时");
+                itemGenerator.ResetTask();
+                UIController.Instance.UpdateTaskUI($"任务已超时");
+
+                DOVirtual.DelayedCall(3F, () => UIController.Instance.UpdateTaskUI(""));
+            }
+        }
+    }
+
+    public void SetTaskCompletedState(bool state)
+    {
+        isTaskCompleted=state;
     }
 
     private void TriggerNewTask()
     {
         string taskSequence = itemGenerator.GenerateNewTask();
-        UIController.Instance.UpdateTaskUI($"新任务：{taskSequence}\n剩余时间：30秒");
+        UIController.Instance.UpdateTaskUI($"新任务：{taskSequence}\n  时间：30秒");
         currentTaskIndex++;
     }
     private void CheckGameEnd()
@@ -150,7 +168,7 @@ public class GameManager : Singleton<GameManager>
 
     private void SetupItemGenerator()
     {
-        itemGenerator.taskLength = 3;
+        itemGenerator.SetTaskLength(3);
         itemGenerator.SetStartSpawn(true);
         itemGenerator.SetMoveSpeed(gameSpeed);
         itemGenerator.ResetTaskSystem();
