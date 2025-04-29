@@ -6,6 +6,7 @@ public class GameManager : Singleton<GameManager>
     #region 字段和属性
     [Header("游戏核心设置")]
     public Transform player;                                  // 玩家对象
+    public GameObject SpeedLine;                                //速度线对象
     public Vector3 playerStartPosition = new Vector3(0, 5, 0);// 玩家初始位置
     public float gameSpeed = 30f;                            // 游戏基础速度
     public float startBeltOffset = 200f;                     // 小行星带初始偏移量
@@ -50,6 +51,7 @@ public class GameManager : Singleton<GameManager>
     private void SetInitialGameState()
     {
         player.gameObject.SetActive(false);
+        SpeedLine.gameObject.SetActive(false);
         itemGenerator.SetStartSpawn(false);
     }
     #endregion
@@ -145,6 +147,9 @@ public class GameManager : Singleton<GameManager>
         player.position = playerStartPosition;
         player.rotation = Quaternion.Euler(0, 0, 0);
         playerControl.InitializePlayer();
+
+
+        SpeedLine.gameObject.SetActive(true);
     }
 
     private void SetupAsteroidBelts()
@@ -185,6 +190,7 @@ public class GameManager : Singleton<GameManager>
         // 关闭玩家
         player.gameObject.SetActive(false);
 
+        SpeedLine.gameObject.SetActive(false);
         // 重置相机
         if (playerControl.cameraTarget != null)
         {
