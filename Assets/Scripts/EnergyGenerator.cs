@@ -6,6 +6,7 @@ public enum ItemType
     Energy,
     Health,
     Score,
+    Shield
 }
 
 [System.Serializable]
@@ -121,6 +122,9 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
             case ItemType.Score:
                 item.tag = "Score";
                 break;
+            case ItemType.Shield:
+                item.tag = "Shield";
+                break;
         }
 
         item.AddComponent<ObstacleMovement>().speed = moveSpeed;
@@ -189,6 +193,7 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
     public void CheckCollection(ItemType collectedType)
     {
         if (!isTaskActive) return;
+        if (collectedType == ItemType.Shield) return;
 
         playerCollection.Add(collectedType);
 
@@ -259,8 +264,10 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
                 return ItemType.Health;
             case "Score": 
                 return ItemType.Score;
+            case "Shield":
+                return ItemType.Shield;
             default: 
-                return ItemType.Energy;
+                return ItemType.Shield;
         }
     }
     #endregion

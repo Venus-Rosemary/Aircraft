@@ -41,6 +41,16 @@ public class PlayerControl : MonoBehaviour
     public TMP_Text Hint;                                      // 提示文本
     public Transform cameraTarget;                             // 相机目标
 
+    [Header("护盾设置")]
+    [SerializeField] private float invincibleDuration = 10f;    // 无敌持续时间
+    [SerializeField] private GameObject shieldEffect;           // 护盾特效对象
+    private bool isInvincible = false;                         // 是否处于无敌状态
+    private Coroutine invincibleCoroutine;                     // 无敌状态协程
+
+    [Header("特效设置")]
+    [SerializeField] private GameObject hitEffect;              //撞击陨石特效
+
+
     // 私有变量
     private float currentMaxMoveSpeed;                         // 当前最大速度
     private float currentTrackSpeed;                           // 当前轨道速度
@@ -86,6 +96,8 @@ public class PlayerControl : MonoBehaviour
     }
     public void InitializePlayer()//正常初始化
     {
+
+        hitEffect.SetActive(false);
         currentHealth = maxHealth;
         currentEnergy = maxEnergy;
         currentScore = 0;
@@ -93,7 +105,8 @@ public class PlayerControl : MonoBehaviour
         Hint.text = "";
         hintblue = false;
         hintyellow = false;
-
+        shieldEffect.SetActive(false);
+        isInvincible = false;
     }
     #endregion
 
@@ -151,6 +164,10 @@ public class PlayerControl : MonoBehaviour
     private void OnDisable()
     {
         inputActions.PC.Disable();
+        if (invincibleCoroutine != null)
+        {
+            StopCoroutine(invincibleCoroutine);
+        }
     }
 
     #region 加速系统
@@ -355,6 +372,7 @@ public class PlayerControl : MonoBehaviour
 
     public void TakeDamage(float damage)//受到伤害
     {
+        if (isInvincible) return;
         currentHealth = Mathf.Max(0, currentHealth - damage);
         if (currentHealth <= 0)
         {
@@ -366,6 +384,24 @@ public class PlayerControl : MonoBehaviour
 
 
             DifficultyController.Instance.CheckHealthDepletedAchievement();
+        }
+    }
+
+    // 护盾激活方法
+    private IEnumerator ActivateInvincible()
+    {
+        isInvincible = true;
+        if (shieldEffect != null)
+        {
+            shieldEffect.SetActive(true);
+        }
+
+        yield return new WaitForSeconds(invincibleDuration);
+
+        isInvincible = false;
+        if (shieldEffect != null)
+        {
+            shieldEffect.SetActive(false);
         }
     }
 
@@ -408,6 +444,11 @@ public class PlayerControl : MonoBehaviour
         switch (other.tag)
         {
             case "Asteroid":
+
+                hitEffect.SetActive(false);
+                hitEffect.transform.position=other.transform.position;
+                hitEffect.SetActive(true);
+
                 TakeDamage(asteroidDamage);
 
                 DifficultyController.Instance.OnAsteroidHit();
@@ -445,6 +486,15 @@ public class PlayerControl : MonoBehaviour
 
                 DifficultyController.Instance.OnEnergyCollected();
 
+                EnergyGenerator.Instance.RemoveFromList(other.gameObject);
+                Destroy(other.gameObject);
+                break;
+            case "Shield":
+                if (invincibleCoroutine != null)
+                {
+                    StopCoroutine(invincibleCoroutine);
+                }
+                invincibleCoroutine = StartCoroutine(ActivateInvincible());
                 EnergyGenerator.Instance.RemoveFromList(other.gameObject);
                 Destroy(other.gameObject);
                 break;

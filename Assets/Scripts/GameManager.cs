@@ -77,6 +77,7 @@ public class GameManager : Singleton<GameManager>
                 itemGenerator.ResetTask();
                 UIController.Instance.UpdateTaskUI($"任务已超时");
 
+                isTaskCompleted = true;
                 DOVirtual.DelayedCall(3F, () => UIController.Instance.UpdateTaskUI(""));
             }
         }
@@ -89,6 +90,7 @@ public class GameManager : Singleton<GameManager>
 
     private void TriggerNewTask()
     {
+        isTaskCompleted = false;
         string taskSequence = itemGenerator.GenerateNewTask();
         UIController.Instance.UpdateTaskUI($"新任务：{taskSequence}\n  时间：30秒");
         currentTaskIndex++;
