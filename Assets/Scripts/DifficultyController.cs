@@ -25,7 +25,7 @@ public class DifficultyController : Singleton<DifficultyController>
 
     private float timer;
     private int asteroidEncountered;      // 遇到的小行星数量
-    private int asteroidHit;              // 被击中的次数
+    [SerializeField]private int asteroidHit;              // 被击中的次数
     private int energySpawned;            // 生成的能量块数量
     private int energyCollected;          // 收集的能量块数量
     private int OriginallyAsteroidNumber; // 最初小行星带的小行星数量、

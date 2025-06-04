@@ -155,8 +155,11 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
             case ItemColor.Yellow:
                 item.tag = "Energy";
                 break;
-            case ItemColor.Green:
+            case ItemColor.Purple:
                 item.tag = "Score";
+                break;
+            case ItemColor.Red:
+                item.tag = "Shield";
                 break;
         }
 

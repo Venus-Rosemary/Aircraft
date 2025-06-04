@@ -30,7 +30,11 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] private float maxEnergy = 100f;           // 最大能量值
     [SerializeField] private float energyDecreaseInterval = 1f;// 能量消耗间隔
     [SerializeField] private float energyDecreaseAmount = 1f;  // 能量消耗量
-    [SerializeField] private float energyGainAmount = 5f;      // 能量获得量
+    [SerializeField] private float normalEnergyDecreaseAmount = 1f;  // 正常能量消耗量
+    [SerializeField] private float boostEnergyDecreaseAmount = 1.2f; // 加速能量消耗量
+    [SerializeField] private float healthPercentageGain = 0.1f;// 生命值恢复百分比
+    [SerializeField] private float healthPercentageLoss = 0.2f;// 生命值损失百分比
+    [SerializeField] private float energyPercentageGain = 0.1f;// 能量恢复百分比
     [SerializeField] private float asteroidDamage = 10f;       // 小行星伤害
     [SerializeField] private float healthGainAmount = 5f;     // 护盾恢复量
 
@@ -39,13 +43,18 @@ public class PlayerControl : MonoBehaviour
     public Slider FlightUI;                                    // 飞行能量UI
     public TMP_Text ScoreUI;                                   // 分数UI
     public TMP_Text Hint;                                      // 提示文本
+    public TMP_Text ShieldCountUI;                             // 护盾收集进度UI
+    public Image FlightEnergyEffect;                           // 能量条特效
     public Transform cameraTarget;                             // 相机目标
 
     [Header("护盾设置")]
-    [SerializeField] private float invincibleDuration = 10f;    // 无敌持续时间
+    [SerializeField] private float invincibleDuration = 3f;    // 无敌持续时间
     [SerializeField] private GameObject shieldEffect;           // 护盾特效对象
+    [SerializeField] private int requiredShieldItems = 3;      // 触发护盾所需道具数量
+    [SerializeField] private float shieldWarningTime = 3f;     // 护盾即将消失警告时间
     private bool isInvincible = false;                         // 是否处于无敌状态
     private Coroutine invincibleCoroutine;                     // 无敌状态协程
+    private int collectedShieldItems = 0;                      // 已收集的护盾道具数量
 
     [Header("特效设置")]
     [SerializeField] private GameObject hitEffect;              //撞击陨石特效
@@ -79,6 +88,11 @@ public class PlayerControl : MonoBehaviour
     void Start()
     {
         InitializeTheGameToStart();
+        UpdateShieldCountUI();
+        if (FlightEnergyEffect != null)
+        {
+            FlightEnergyEffect.gameObject.SetActive(false);
+        }
     }
 
 
@@ -107,6 +121,12 @@ public class PlayerControl : MonoBehaviour
         hintyellow = false;
         shieldEffect.SetActive(false);
         isInvincible = false;
+        collectedShieldItems = 0;
+        UpdateShieldCountUI();
+        if (FlightEnergyEffect != null)
+        {
+            FlightEnergyEffect.gameObject.SetActive(false);
+        }
     }
     #endregion
 
@@ -173,7 +193,6 @@ public class PlayerControl : MonoBehaviour
     #region 加速系统
     private void HandleBoost()//加速
     {
-        // 检测加速输入
         bool boostInput = inputActions.PC.Move.ReadValue<Vector2>().y > 0;
 
         if (boostInput && !isBoosting)
@@ -195,10 +214,19 @@ public class PlayerControl : MonoBehaviour
             DOTween.To(() => currentMaxMoveSpeed, x => currentMaxMoveSpeed = x,
                 maxMoveSpeed * boostMoveSpeedMultiplier, speedTransitionTime);
 
-            EnergyGenerator.Instance.SetMoveSpeed(boostTrackSpeed);//设置物品速度
-            EnergyGenerator.Instance.SetBoostMode(true); // 通知道具生成器进入加速模式
-            AsteroidBeltPoolManager.Instance.SetAllAsteroidBelMoveSpeed(boostTrackSpeed);//设置小行星带速度
+            EnergyGenerator.Instance.SetMoveSpeed(boostTrackSpeed);
+            EnergyGenerator.Instance.SetBoostMode(true);
+            AsteroidBeltPoolManager.Instance.SetAllAsteroidBelMoveSpeed(boostTrackSpeed);
             Camera.main.DOFieldOfView(70f, speedTransitionTime);
+
+            // 激活能量条特效
+            if (FlightEnergyEffect != null)
+            {
+                FlightEnergyEffect.gameObject.SetActive(true);
+            }
+
+            // 设置能量消耗为加速模式
+            energyDecreaseAmount = boostEnergyDecreaseAmount;
         }
         else if (!boostInput && isBoosting)
         {
@@ -220,9 +248,18 @@ public class PlayerControl : MonoBehaviour
                 maxMoveSpeed, speedTransitionTime);
 
             EnergyGenerator.Instance.SetMoveSpeed(normalTrackSpeed);
-            EnergyGenerator.Instance.SetBoostMode(false); // 通知道具生成器退出加速模式
+            EnergyGenerator.Instance.SetBoostMode(false);
             AsteroidBeltPoolManager.Instance.SetAllAsteroidBelMoveSpeed(normalTrackSpeed);
             Camera.main.DOFieldOfView(60f, speedTransitionTime);
+
+            // 关闭能量条特效
+            if (FlightEnergyEffect != null)
+            {
+                FlightEnergyEffect.gameObject.SetActive(false);
+            }
+
+            // 恢复正常能量消耗
+            energyDecreaseAmount = normalEnergyDecreaseAmount;
         }
     }
     #endregion
@@ -373,18 +410,15 @@ public class PlayerControl : MonoBehaviour
 
     public void TakeDamage(float damage)//受到伤害
     {
-        if (isInvincible) return;
-        currentHealth = Mathf.Max(0, currentHealth - damage);
-        if (currentHealth <= 0)
+        if (!isInvincible)
         {
-            // 游戏结束逻辑
-            GameManager.Instance.GameOver();
-
-            UIController.Instance.UpEndPanelHintUI("粉身碎骨，你变成了太空垃圾");
-            Debug.Log("粉身碎骨，你变成了太空垃圾");
-
-
-            DifficultyController.Instance.CheckHealthDepletedAchievement();
+            currentHealth -= maxHealth * healthPercentageLoss;
+            if (currentHealth <= 0)
+            {
+                currentHealth = 0;
+                GameManager.Instance.GameOver();
+                UIController.Instance.UpEndPanelHintUI("粉身碎骨，你变成了太空垃圾");
+            }
         }
     }
 
@@ -392,28 +426,33 @@ public class PlayerControl : MonoBehaviour
     private IEnumerator ActivateInvincible()
     {
         isInvincible = true;
-        if (shieldEffect != null)
+        shieldEffect.SetActive(true);
+
+        // 等待直到剩余3秒
+        yield return new WaitForSeconds(invincibleDuration - shieldWarningTime);
+
+        // 开始闪烁提示
+        float endTime = Time.time + shieldWarningTime;
+        while (Time.time < endTime)
         {
-            shieldEffect.SetActive(true);
+            shieldEffect.SetActive(!shieldEffect.activeSelf);
+            yield return new WaitForSeconds(0.2f);
         }
 
-        yield return new WaitForSeconds(invincibleDuration);
-
+        // 结束无敌状态
         isInvincible = false;
-        if (shieldEffect != null)
-        {
-            shieldEffect.SetActive(false);
-        }
+        shieldEffect.SetActive(false);
+        invincibleCoroutine = null;
     }
 
-    public void GainHealth(float damage)//增加血量
+    public void GainHealth(float amount)//增加血量
     {
-        currentHealth = Mathf.Min(maxHealth, currentHealth + damage);
+        currentHealth = Mathf.Min(currentHealth + maxHealth * healthPercentageGain, maxHealth);
     }
 
     public void GainEnergy(float amount)//增加能量
     {
-        currentEnergy = Mathf.Min(maxEnergy, currentEnergy + amount);
+        currentEnergy = Mathf.Min(currentEnergy + maxEnergy * energyPercentageGain, maxEnergy);
     }
 
     public void AddScore(int score)//加分
@@ -460,7 +499,7 @@ public class PlayerControl : MonoBehaviour
         }
         else if (other.CompareTag("Energy"))
         {
-            GainEnergy(energyGainAmount);
+            GainEnergy(maxEnergy * energyPercentageGain);
             EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
             EnergyGenerator.Instance.CheckCollection(collectedColor);
@@ -469,6 +508,28 @@ public class PlayerControl : MonoBehaviour
         else if (other.CompareTag("Score"))
         {
             AddScore(1);
+            EnergyGenerator.Instance.RemoveFromList(other.gameObject);
+            ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
+            EnergyGenerator.Instance.CheckCollection(collectedColor);
+            Destroy(other.gameObject);
+        }
+        else if (other.CompareTag("Shield"))
+        {
+            collectedShieldItems++;
+            UpdateShieldCountUI();
+            
+            if (collectedShieldItems >= requiredShieldItems)
+            {
+                collectedShieldItems = 0;
+                UpdateShieldCountUI();
+                
+                if (invincibleCoroutine != null)
+                {
+                    StopCoroutine(invincibleCoroutine);
+                }
+                invincibleCoroutine = StartCoroutine(ActivateInvincible());
+            }
+            
             EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
             EnergyGenerator.Instance.CheckCollection(collectedColor);
@@ -494,6 +555,14 @@ public class PlayerControl : MonoBehaviour
         return targetScore;
     }
     #endregion
+
+    private void UpdateShieldCountUI()
+    {
+        if (ShieldCountUI != null)
+        {
+            ShieldCountUI.text = $"{collectedShieldItems}/{requiredShieldItems}";
+        }
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()
