@@ -42,6 +42,10 @@ public class MapGenerator : Singleton<MapGenerator>
 
     void Update()
     {
+    }
+
+    private void FixedUpdate()
+    {
         // 移动所有轨道
         MoveAndManageTracks();
     }

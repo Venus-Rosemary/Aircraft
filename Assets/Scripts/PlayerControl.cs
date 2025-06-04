@@ -196,6 +196,7 @@ public class PlayerControl : MonoBehaviour
                 maxMoveSpeed * boostMoveSpeedMultiplier, speedTransitionTime);
 
             EnergyGenerator.Instance.SetMoveSpeed(boostTrackSpeed);//设置物品速度
+            EnergyGenerator.Instance.SetBoostMode(true); // 通知道具生成器进入加速模式
             AsteroidBeltPoolManager.Instance.SetAllAsteroidBelMoveSpeed(boostTrackSpeed);//设置小行星带速度
             Camera.main.DOFieldOfView(70f, speedTransitionTime);
         }
@@ -208,19 +209,19 @@ public class PlayerControl : MonoBehaviour
                 cameraTarget.DOLocalMoveZ(originalCameraPosition.z, speedTransitionTime);
             }
 
-            // 平滑过渡回正常速度
+            // 轨道平滑过渡回正常速度
             DOTween.To(() => currentTrackSpeed, x => {
                 currentTrackSpeed = x;
                 MapGenerator.Instance.trackSpeed = x;
             }, normalTrackSpeed, speedTransitionTime);
 
-            // 平滑过渡回正常移动速度
+            // 左右平滑过渡回正常移动速度
             DOTween.To(() => currentMaxMoveSpeed, x => currentMaxMoveSpeed = x,
                 maxMoveSpeed, speedTransitionTime);
 
             EnergyGenerator.Instance.SetMoveSpeed(normalTrackSpeed);
+            EnergyGenerator.Instance.SetBoostMode(false); // 通知道具生成器退出加速模式
             AsteroidBeltPoolManager.Instance.SetAllAsteroidBelMoveSpeed(normalTrackSpeed);
-
             Camera.main.DOFieldOfView(60f, speedTransitionTime);
         }
     }
@@ -439,67 +440,40 @@ public class PlayerControl : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-
-
-        switch (other.tag)
+        if (other.CompareTag("Asteroid"))
         {
-            case "Asteroid":
-
-                hitEffect.SetActive(false);
-                hitEffect.transform.position=other.transform.position;
-                hitEffect.SetActive(true);
-
+            if (!isInvincible)
+            {
                 TakeDamage(asteroidDamage);
-
-                DifficultyController.Instance.OnAsteroidHit();
-
-                EnergyGenerator.Instance.RemoveFromList(other.gameObject);
-                Destroy(other.gameObject);
-                break;
-            case "Energy":
-                GainEnergy(energyGainAmount);
-
-                ItemType collectedType = EnergyGenerator.Instance.GetItemTypeFromGameObject(other.gameObject);
-                EnergyGenerator.Instance.CheckCollection(collectedType);                // 检查收集顺序
-
-                DifficultyController.Instance.OnEnergyCollected();
-
-                EnergyGenerator.Instance.RemoveFromList(other.gameObject);
-                Destroy(other.gameObject);
-                break;
-            case "Health":
-                GainHealth(healthGainAmount);
-
-                collectedType = EnergyGenerator.Instance.GetItemTypeFromGameObject(other.gameObject);
-                EnergyGenerator.Instance.CheckCollection(collectedType);
-
-                DifficultyController.Instance.OnEnergyCollected();
-
-                EnergyGenerator.Instance.RemoveFromList(other.gameObject);
-                Destroy(other.gameObject);
-                break;
-            case "Score":
-                AddScore(1);
-
-                collectedType = EnergyGenerator.Instance.GetItemTypeFromGameObject(other.gameObject);
-                EnergyGenerator.Instance.CheckCollection(collectedType);
-
-                DifficultyController.Instance.OnEnergyCollected();
-
-                EnergyGenerator.Instance.RemoveFromList(other.gameObject);
-                Destroy(other.gameObject);
-                break;
-            case "Shield":
-                if (invincibleCoroutine != null)
-                {
-                    StopCoroutine(invincibleCoroutine);
-                }
-                invincibleCoroutine = StartCoroutine(ActivateInvincible());
-                EnergyGenerator.Instance.RemoveFromList(other.gameObject);
-                Destroy(other.gameObject);
-                break;
+                hitEffect.SetActive(true);
+                DOVirtual.DelayedCall(0.5f, () => hitEffect.SetActive(false));
+            }
+            Destroy(other.gameObject);
         }
-
+        else if (other.CompareTag("Health"))
+        {
+            GainHealth(healthGainAmount);
+            EnergyGenerator.Instance.RemoveFromList(other.gameObject);
+            ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
+            EnergyGenerator.Instance.CheckCollection(collectedColor);
+            Destroy(other.gameObject);
+        }
+        else if (other.CompareTag("Energy"))
+        {
+            GainEnergy(energyGainAmount);
+            EnergyGenerator.Instance.RemoveFromList(other.gameObject);
+            ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
+            EnergyGenerator.Instance.CheckCollection(collectedColor);
+            Destroy(other.gameObject);
+        }
+        else if (other.CompareTag("Score"))
+        {
+            AddScore(1);
+            EnergyGenerator.Instance.RemoveFromList(other.gameObject);
+            ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
+            EnergyGenerator.Instance.CheckCollection(collectedColor);
+            Destroy(other.gameObject);
+        }
     }
 
 

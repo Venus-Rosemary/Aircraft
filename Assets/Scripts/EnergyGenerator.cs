@@ -1,33 +1,63 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
-public enum ItemType
+
+// 道具颜色枚举
+public enum ItemColor
 {
-    Energy,
-    Health,
-    Score,
-    Shield
+    Blue,   
+    Yellow, // 能量
+    Green,  
+    Cyan,   // 血量
+    Purple, // 任务触发
+    Red,    // 护盾
+}
+
+// 道具形状枚举
+public enum ItemShape
+{
+    Cube,
+    Sphere,
+    Diamond,
+    Star
+}
+
+// 颜色配置
+[System.Serializable]
+public class ColorConfig
+{
+    public string colorName;           // 颜色名称
+    public Color color = Color.white;  // 颜色值
+    public ItemColor effectType;       // 效果类型
+    [Range(0f, 1f)]
+    public float spawnWeight = 1f;     // 生成权重
 }
 
 [System.Serializable]
-public class ItemPrefab
+public class ItemShapePrefab
 {
-    public ItemType type;
+    public ItemShape shape;
     public GameObject prefab;
-    public float spawnWeight = 1f; // 生成权重，权重越高越容易生成
 }
+
 public class EnergyGenerator : Singleton<EnergyGenerator>
 {
     #region 字段和属性
-    [Header("道具生成设置")]
-    public ItemPrefab[] itemPrefabs;                         // 道具预制体数组
+    [Header("道具预制体设置")]
+    public ItemShapePrefab[] shapePrefabs;                   // 形状预制体数组
+
+    [Header("道具颜色设置")]
+    public ColorConfig[] colorConfigs;                       // 颜色配置数组
+    private float totalSpawnWeight;                          // 总生成权重
 
     [Header("生成参数")]
-    public float spawnHeight = 5f;                           // 生成高度
-
+    public float spawnHeightMin = 3f;                        // 最小生成高度
+    public float spawnHeightMax = 7f;                        // 最大生成高度
     public float baseSpawnInterval = 2f;                     // 基础生成间隔
     public float minSpawnInterval = 0.5f;                    // 最小生成间隔
-    private float spawnInterval = 2f;                             // 当前生成间隔
+    public float boostSpawnMultiplier = 0.5f;               // 加速时生成间隔倍率
+    private float spawnInterval = 2f;                        // 当前生成间隔
+    private bool isBoostMode = false;                        // 是否处于加速状态
 
     public float spawnWidth = 5f;                            // 生成宽度
     public float moveSpeed;                                  // 移动速度
@@ -35,106 +65,128 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
 
     [Header("任务系统")]
     public int taskLength = 3;                               // 任务序列长度
-    [SerializeField] private List<ItemType> currentTask;     // 当前任务序列
-    [SerializeField] private List<ItemType> playerCollection;// 玩家收集序列
+    [SerializeField] private List<ItemColor> currentTask;    // 当前任务序列
+    [SerializeField] private List<ItemColor> playerCollection;// 玩家收集序列
     private bool isTaskActive = false;                       // 任务激活状态
 
     private float lastSpawnTime;                             // 上次生成时间
     private bool startSpawn = false;                         // 是否开始生成
-    [SerializeField] private List<GameObject> allSpawnedEnergies = new List<GameObject>();
+    [SerializeField] private List<GameObject> allSpawnedItems = new List<GameObject>();
     #endregion
 
-
     #region 生命周期方法
-
     private void Start()
     {
+        currentTask = new List<ItemColor>();
+        playerCollection = new List<ItemColor>();
         UpdateSpawnInterval();
+        CalculateTotalWeight();
     }
+
+    private void CalculateTotalWeight()
+    {
+        totalSpawnWeight = 0f;
+        if (colorConfigs != null)
+        {
+            foreach (var config in colorConfigs)
+            {
+                totalSpawnWeight += config.spawnWeight;
+            }
+        }
+    }
+
     void Update()
     {
-        if (Time.time - lastSpawnTime >= spawnInterval && startSpawn)
+        if (Time.time - lastSpawnTime >= (isBoostMode ? spawnInterval * boostSpawnMultiplier : spawnInterval) && startSpawn)
         {
-            SpawnEnergy();
+            SpawnItem();
             lastSpawnTime = Time.time;
         }
     }
     #endregion
 
-
     #region 道具生成
-
     private void UpdateSpawnInterval()
     {
-        float t = (taskLength - 2f) / 4f; // 归一化任务长度
-        t = Mathf.Clamp01(t); // 确保值在0-1之间
+        float t = (taskLength - 2f) / 4f;
+        t = Mathf.Clamp01(t);
         spawnInterval = Mathf.Lerp(baseSpawnInterval, minSpawnInterval, t);
     }
 
-    // 在任务长度改变时更新生成间隔
     public void SetTaskLength(int length)
     {
         taskLength = length;
         UpdateSpawnInterval();
     }
 
-    void SpawnEnergy()//能量块生成
+    void SpawnItem()
     {
-        if (itemPrefabs == null || itemPrefabs.Length == 0) return;
+        if (shapePrefabs == null || shapePrefabs.Length == 0 || colorConfigs == null || colorConfigs.Length == 0) return;
 
-        // 计算总权重
-        float totalWeight = 0;
-        foreach (var items in itemPrefabs)
-        {
-            totalWeight += items.spawnWeight;
-        }
+        // 随机选择形状
+        int randomShapeIndex = Random.Range(0, shapePrefabs.Length);
+        ItemShapePrefab selectedShape = shapePrefabs[randomShapeIndex];
 
-        // 随机选择一个道具
-        float randomWeight = Random.Range(0, totalWeight);
-        ItemPrefab selectedItem = itemPrefabs[0];
-        float currentWeight = 0;
+        // 根据权重随机选择颜色配置
+        ColorConfig selectedColorConfig = GetRandomColorConfig();
+        if (selectedColorConfig == null) return;
 
-        foreach (var items in itemPrefabs)
-        {
-            currentWeight += items.spawnWeight;
-            if (randomWeight <= currentWeight)
-            {
-                selectedItem = items;
-                break;
-            }
-        }
-
+        // 随机生成位置
         float randomX = Random.Range(-spawnWidth, spawnWidth);
+        float randomY = Random.Range(spawnHeightMin, spawnHeightMax);
         float randomZ = transform.position.z;
 
-        Vector3 spawnPosition = new Vector3(randomX, spawnHeight, randomZ);
-        GameObject item = Instantiate(selectedItem.prefab, spawnPosition, Quaternion.identity, transform);
-        
-        // 设置标签
-        switch (selectedItem.type)
+        Vector3 spawnPosition = new Vector3(randomX, randomY, randomZ);
+        GameObject item = Instantiate(selectedShape.prefab, spawnPosition, Quaternion.identity, transform);
+
+        // 设置Outline颜色
+        var outline = item.GetComponent<Outline>();
+        if (outline != null)
         {
-            case ItemType.Energy:
-                item.tag = "Energy";
-                break;
-            case ItemType.Health:
+            outline.OutlineColor = selectedColorConfig.color;
+        }
+
+        // 设置标签和类型
+        switch (selectedColorConfig.effectType)
+        {
+            case ItemColor.Cyan:
                 item.tag = "Health";
                 break;
-            case ItemType.Score:
-                item.tag = "Score";
+            case ItemColor.Yellow:
+                item.tag = "Energy";
                 break;
-            case ItemType.Shield:
-                item.tag = "Shield";
+            case ItemColor.Green:
+                item.tag = "Score";
                 break;
         }
 
+        // 添加移动组件
         item.AddComponent<ObstacleMovement>().speed = moveSpeed;
-        allSpawnedEnergies.Add(item);
-
+        allSpawnedItems.Add(item);
 
         DifficultyController.Instance.OnEnergySpawned();
     }
-    #endregion
 
+    // 根据权重随机选择颜色配置
+    private ColorConfig GetRandomColorConfig()
+    {
+        if (colorConfigs == null || colorConfigs.Length == 0) return null;
+
+        float randomValue = Random.Range(0f, totalSpawnWeight);
+        float currentWeight = 0f;
+
+        foreach (var config in colorConfigs)
+        {
+            currentWeight += config.spawnWeight;
+            if (randomValue <= currentWeight)
+            {
+                return config;
+            }
+        }
+
+        return colorConfigs[0];
+    }
+    #endregion
 
     #region 公共接口
     public void SetStartSpawn(bool start)
@@ -142,133 +194,108 @@ public class EnergyGenerator : Singleton<EnergyGenerator>
         startSpawn = start;
     }
 
-    public void SetMoveSpeed(float mSpeed)//外部设置速度
+    public void SetBoostMode(bool boost)
+    {
+        isBoostMode = boost;
+    }
+
+    public void SetMoveSpeed(float mSpeed)
     {
         moveSpeed = mSpeed;
-        foreach (var energy in allSpawnedEnergies)
+        foreach (var item in allSpawnedItems)
         {
-            if(energy != null)
-                energy.GetComponent<ObstacleMovement>().speed = mSpeed;
+            if(item != null)
+                item.GetComponent<ObstacleMovement>().speed = mSpeed;
         }
     }
 
-    public void RemoveFromList(GameObject energy)
+    public void RemoveFromList(GameObject item)
     {
-        allSpawnedEnergies.Remove(energy);
+        allSpawnedItems.Remove(item);
     }
 
     public void ClearAllItems()
     {
-        foreach (var item in allSpawnedEnergies.ToArray())
+        foreach (var item in allSpawnedItems.ToArray())
         {
             if (item != null)
             {
                 Destroy(item);
             }
         }
-        allSpawnedEnergies.Clear();
+        allSpawnedItems.Clear();
     }
     #endregion
 
-
     #region 任务模块
-    // 生成新任务
     public string GenerateNewTask()
     {
         isTaskActive = true;
         playerCollection.Clear();
+        currentTask.Clear();
 
         // 生成随机序列
         for (int i = 0; i < taskLength; i++)
         {
-            ItemType randomType = (ItemType)Random.Range(0, System.Enum.GetValues(typeof(ItemType)).Length);
-            currentTask.Add(randomType);
+            ItemColor randomColor = (ItemColor)Random.Range(0, System.Enum.GetValues(typeof(ItemColor)).Length);
+            currentTask.Add(randomColor);
         }
 
         // 转换为显示字符串
         return string.Join("-", currentTask);
     }
 
-    // 检查收集顺序
-    public void CheckCollection(ItemType collectedType)
+    public void CheckCollection(ItemColor collectedColor)
     {
         if (!isTaskActive) return;
-        if (collectedType == ItemType.Shield) return;
 
-        playerCollection.Add(collectedType);
+        playerCollection.Add(collectedColor);
 
         // 检查是否按正确顺序收集
         if (playerCollection.Count <= currentTask.Count)
         {
-            // 检查当前收集的物品是否符合顺序
-            if (playerCollection[playerCollection.Count - 1] != currentTask[playerCollection.Count - 1])
+            for (int i = 0; i < playerCollection.Count; i++)
             {
-                // 收集顺序错误，重置任务
-                ResetTask();
-                UIController.Instance.UpdateTaskUI("收集顺序错误，任务重置！");
-
-                GameManager.Instance.SetTaskCompletedState(true);
-
-                DifficultyController.Instance.OnTaskCompleted(false);
-
-                DOVirtual.DelayedCall(3F, () => UIController.Instance.UpdateTaskUI(""));
-                return;
+                if (playerCollection[i] != currentTask[i])
+                {
+                    ResetTask();
+                    return;
+                }
             }
 
-            // 检查是否完成整个序列
+            // 如果收集完成
             if (playerCollection.Count == currentTask.Count)
             {
-                // 完成任务，给予奖励
+                GameManager.Instance.SetTaskCompletedState(true);
                 PlayerControl player = FindObjectOfType<PlayerControl>();
                 if (player != null)
                 {
-                    player.AddScore(taskLength); // 额外奖励分数
-
-                    DifficultyController.Instance.CheckTaskBonusAchievement();
-
-                    UIController.Instance.UpdateTaskUI("任务完成！获得额外分数：" + taskLength);
-
-                    GameManager.Instance.SetTaskCompletedState(true);
-
-                    DifficultyController.Instance.OnTaskCompleted(true);
-
-                    DOVirtual.DelayedCall(3F, () => UIController.Instance.UpdateTaskUI(""));
+                    player.AddScore(1);
                 }
                 ResetTask();
             }
         }
     }
 
-    // 重置任务
     public void ResetTask()
     {
+        isTaskActive = false;
         currentTask.Clear();
         playerCollection.Clear();
-        isTaskActive = false;
     }
 
-    // 重置任务索引的方法
     public void ResetTaskSystem()
     {
         ResetTask();
+        ClearAllItems();
     }
 
-    // 修改 OnTriggerEnter 中的处理
-    public ItemType GetItemTypeFromGameObject(GameObject obj)
+    public ItemColor GetItemColorFromGameObject(GameObject obj)
     {
-        switch (obj.tag)
-        {
-            case "Energy": 
-                return ItemType.Energy;
-            case "Health": 
-                return ItemType.Health;
-            case "Score": 
-                return ItemType.Score;
-            case "Shield":
-                return ItemType.Shield;
-            default: 
-                return ItemType.Shield;
-        }
+        if (obj.CompareTag("Health")) return ItemColor.Cyan;
+        if (obj.CompareTag("Energy")) return ItemColor.Yellow;
+        if (obj.CompareTag("Score")) return ItemColor.Green;
+        return ItemColor.Blue; // 默认返回蓝色
     }
     #endregion
 }

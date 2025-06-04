@@ -84,8 +84,8 @@ public class DifficultyController : Singleton<DifficultyController>
             AchievementData currentData = TaskDataManager.Instance.LoadAchievementData(item.AchievementName);
             if (currentData == null)
             {
-                TaskDataManager.Instance.SaveAchievementData(item.AchievementName, false);
             }
+            TaskDataManager.Instance.SaveAchievementData(item.AchievementName, false);
         }
 
         achievementDatas=TaskDataManager.Instance.LoadAchievementToList();//初始化好的json再存回列表
