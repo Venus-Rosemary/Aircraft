@@ -479,14 +479,25 @@ public class PlayerControl : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        if (true)
+        {
+
+
+        }
+
         if (other.CompareTag("Asteroid"))
         {
             if (!isInvincible)
             {
                 TakeDamage(asteroidDamage);
+                hitEffect.SetActive(false);
+                hitEffect.transform.position = other.transform.position;
                 hitEffect.SetActive(true);
                 DOVirtual.DelayedCall(0.5f, () => hitEffect.SetActive(false));
             }
+
+            DifficultyController.Instance.OnAsteroidHit();
+            EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             Destroy(other.gameObject);
         }
         else if (other.CompareTag("Health"))
@@ -495,6 +506,8 @@ public class PlayerControl : MonoBehaviour
             EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
             EnergyGenerator.Instance.CheckCollection(collectedColor);
+
+            DifficultyController.Instance.OnEnergyCollected();
             Destroy(other.gameObject);
         }
         else if (other.CompareTag("Energy"))
@@ -503,6 +516,8 @@ public class PlayerControl : MonoBehaviour
             EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
             EnergyGenerator.Instance.CheckCollection(collectedColor);
+
+            DifficultyController.Instance.OnEnergyCollected();
             Destroy(other.gameObject);
         }
         else if (other.CompareTag("Score"))
@@ -511,6 +526,8 @@ public class PlayerControl : MonoBehaviour
             EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
             EnergyGenerator.Instance.CheckCollection(collectedColor);
+
+            DifficultyController.Instance.OnEnergyCollected();
             Destroy(other.gameObject);
         }
         else if (other.CompareTag("Shield"))
@@ -533,9 +550,14 @@ public class PlayerControl : MonoBehaviour
             EnergyGenerator.Instance.RemoveFromList(other.gameObject);
             ItemColor collectedColor = EnergyGenerator.Instance.GetItemColorFromGameObject(other.gameObject);
             EnergyGenerator.Instance.CheckCollection(collectedColor);
+
+
+            DifficultyController.Instance.OnEnergyCollected();
             Destroy(other.gameObject);
         }
     }
+
+
 
 
 
